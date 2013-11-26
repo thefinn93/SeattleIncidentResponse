@@ -33,19 +33,19 @@ import supybot.registry as registry
 from supybot.i18n import PluginInternationalization, internationalizeDocstring
 import os
 
-_ = PluginInternationalization('Seattle911')
+_ = PluginInternationalization('SeattleIncidentResponse')
 
 def configure(advanced):
     from supybot.questions import expect, anything, something, yn
     conf.registerPlugin('Seattle911')
 
-Seattle911 = conf.registerPlugin('Seattle911')
+SeattleIncidentResponse = conf.registerPlugin('SeattleIncidentResponse')
 
-conf.registerGlobalValue(Seattle911, 'checkinterval',
+conf.registerGlobalValue(SeattleIncidentResponse, 'checkinterval',
     registry.NonNegativeInteger(1, """How often, in minutes, to check for new incidents"""))
     
-conf.registerGlobalValue(Seattle911, 'postformat',
+conf.registerGlobalValue(SeattleIncidentResponse, 'postformat',
     registry.String("[911] [{incident_number}][{incident_type}] {address}", """How often, in minutes, to check for new incidents"""))
 
-conf.registerChannelValue(Seattle911, 'enabled',
+conf.registerChannelValue(SeattleIncidentResponse, 'enabled',
     registry.Boolean(False, """Determines whether the bot will announce 911 calls in this channel"""))

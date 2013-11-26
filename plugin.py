@@ -1,5 +1,5 @@
 ###
-# Copyright (c) 2012, Finn Herzfeld
+# Copyright (c) 2014, Finn Herzfeld
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -44,26 +44,26 @@ import ConfigParser
 import json
 import re
 
-_ = PluginInternationalization('Seattle911')
+_ = PluginInternationalization('SeattleIncidentResponse')
 
 @internationalizeDocstring
-class Seattle911(callbacks.Plugin):
+class SeattleIncidentResponse(callbacks.Plugin):
     """No user interaction needed. Set the config
     as described in the README."""
     pass
     
     def __init__(self, irc):
-        self.__parent = super(Seattle911, self)
+        self.__parent = super(SeattleIncidentResponse, self)
         self.__parent.__init__(irc)
-        self.savefile = conf.supybot.directories.data.dirize("Seattle911.db")
+        self.savefile = conf.supybot.directories.data.dirize("SeattleIncidentResponse.db")
                 
         def checkForPosts():
             self.checkForIncidents(irc)
         try:
-            schedule.addPeriodicEvent(checkForPosts, self.registryValue('checkinterval')*60, '911check', False)
+            schedule.addPeriodicEvent(checkForPosts, self.registryValue('checkinterval')*60, 'incidentresponsecheck', False)
         except AssertionError:
-            schedule.removeEvent('911check')
-            schedule.addPeriodicEvent(checkForPosts, self.registryValue('checkinterval')*60, '911check', False)
+            schedule.removeEvent('incidentresponsecheck')
+            schedule.addPeriodicEvent(checkForPosts, self.registryValue('checkinterval')*60, 'incidentresponsecheck', False)
     
     def post(self, irc, channel, msg):
         try:
@@ -74,31 +74,33 @@ class Seattle911(callbacks.Plugin):
             self.log.warning(str(e))
     
     def checkForIncidents(self, irc):
-        self.log.info("Checking for shit")
         try:
             data = json.load(open(self.savefile))
         except Exception as inst:
             data = []
-        request = requests.get("http://data.seattle.gov/resource/kzjm-xkqj.json").json()
+        url = "http://data.seattle.gov/resource/3k2p-39jp.json"
+        self.log.debug("Retreiving %s" % url)
+        request = requests.get(url).json()
+        self.log.debug("Retreived and converted to JSON. %i entries" % len(request))
         try:
-            messageformat = "[911] [{incident_number}][{incident_type}] {address}"
+            messageformat = "[Inident Response] [{incident_number}][{incident_type}] {address}"
             if self.registryValue('postformat'):
                 messageformat = self.registryValue('postformat')
             actuallyannounce = True
             if len(data) == 0:
                 actuallyannounce = False
+                self.info.log("Not actually announcing, current dataset is 0 (likely our first time)")
             for incident in request:
-                if "incident_number" in incident:
-                    if not incident['incident_number'] in data:
+                if "cad_event_number" in incident:
+                    if not incident['cad_event_number'] in data:
+                        self.log.debug("Preparing to announce: %s" %srt(incident))
                         msg = messageformat.format(
-                            address = incident['address'],
-                            longitude = incident['longitude'],
-                            latitude = incident['latitude'],
-                            incident_number = incident['incident_number'],
-                            incident_type = incident['type'],
-                            #report_location_needs_recoding = incident['report_location']['needs_recoding'],
-                            #report_location_longitude = incident['report_location']['longitude'],
-                            #report_location_latitude = incident['report_location']['latitude'],
+                            cad_event_number = incident['cad_event_number'],
+                            cad_cdw_id = incident['cad_cdw_id'],
+                            zone_beat = incident['zone_beat'],
+                            district_sector = incident['district_sector'],
+                            hundred_block_location = incident['hundred_block_location'],
+                            general_offense_number = incident['general_offense_number'],
                             bold = chr(002),
                             underline = "\037",
                             reverse = "\026",
@@ -121,8 +123,8 @@ class Seattle911(callbacks.Plugin):
                             if self.registryValue('enabled', channel) and actuallyannounce:
                                 self.post(irc, channel, msg)
                             else:
-                                self.log.info("Not posting to %s: %s" % (channel, msg))
-                        data.append(incident['incident_number'])
+                                self.log.debug("Not posting to %s: %s" % (channel, msg))
+                        data.append(incident['cad_event_number'])
         except Exception as e:
             self.log.info(str(incident))
             self.log.info(str(messageformat))
@@ -137,7 +139,7 @@ class Seattle911(callbacks.Plugin):
     def check(self, irc, msg, args):
         """takes no args
                 
-        Checks for new 911 calls"""
+        Checks for new incident responses"""
         if ircdb.checkCapability(msg.prefix, "owner"):
             irc.reply("Checking!")
             self.checkForIncidents(irc)
@@ -154,11 +156,11 @@ class Seattle911(callbacks.Plugin):
             def checkForPosts():
                 self.checkForIncidents(irc)
             try:
-                schedule.addPeriodicEvent(checkForPosts, self.registryValue('checkinterval')*60, '911check', False)
+                schedule.addPeriodicEvent(checkForPosts, self.registryValue('checkinterval')*60, 'incidentresponsecheck', False)
             except AssertionError:
-                irc.reply('The 911 checker was already running!')
+                irc.reply('The incident response was already running!')
             else:
-                irc.reply('911 checker started!')
+                irc.reply('Incident response checker started!')
         else:
             irc.reply("Fuck off you unauthorized piece of shit")
     start = wrap(start)
@@ -169,16 +171,16 @@ class Seattle911(callbacks.Plugin):
         A command to stop the node checker."""
         if ircdb.checkCapability(msg.prefix, "owner"):
             try:
-                schedule.removeEvent('911check')
+                schedule.removeEvent('incidentresponsecheck')
             except KeyError:
-                irc.reply('Error: the 911 checker wasn\'t running!')
+                irc.reply('Error: the incident response checker wasn\'t running!')
             else:
-                irc.reply('911 checker stopped.')
+                irc.reply('incident response checker stopped.')
         else:
             irc.reply("Fuck off you unauthorized piece of shit")
     stop = wrap(stop)
 
-Class = Seattle911
+Class = SeattleIncidentResponse
 
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:
